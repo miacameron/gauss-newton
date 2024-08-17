@@ -3,3 +3,4 @@ mnist_results/
 .vscode/
 __pycache__/
 results/
+*.ipynb
