@@ -20,7 +20,7 @@ parser.add_argument("--grad_type", help="type of weight transport algorithm (bac
 parser.add_argument("--dataset", help="MNIST or CIFAR10")
 parser.add_argument("--name", help='name of this experiment', default="unnamed")
 parser.add_argument("--n_hidden", help="number of hidden layers", default=0)
-parser.add_argument("--batch_size", help="training batch size", default=40)
+parser.add_argument("--batch_size", help="training batch size", default=1)
 parser.add_argument("--random_seed", help="random seed for pytorch", default=1234)
 parser.add_argument("--epochs", help="number of epochs to run", default=3)
 parser.add_argument("--connectivity", help="fc (fully-connected) or conv", default="fc")
@@ -30,70 +30,59 @@ parser.add_argument("--lr", help="learning rate", default=0.0001)
 args = parser.parse_args()
 
 torch.manual_seed(int(args.random_seed))
+torch.set_float32_matmul_precision('high')
+
 n_epochs = int(args.epochs)
 batch_size_train = int(args.batch_size)
-batch_size_test = 50
+batch_size_test = 20
 name = args.name
 lr = float(args.lr)
 
-dataset = args.dataset
 net = None
 
 assert (args.grad_type in ["backprop", "pseudo", "random"])
+assert (args.dataset in ["MNIST", "CIFAR10"])
+assert (args.connectivity in ["fc", "conv"])
+dataset = args.dataset
 grad_type = args.grad_type
-
-match args.connectivity:
-
-    case "fc":
-        if (dataset == "MNIST"):
-            if (args.n_hidden == 0):
-                n_hidden = 3
-            else:
-                n_hidden = args.n_hidden
-            input_size = 32*32*3
-            hidden_size = 1024
-            output_size = 10
-            transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,)), transforms.Lambda(lambda x : torch.flatten(x))])
-            trainset = torchvision.datasets.MNIST(root='./data/', train=True, download=True, transform=transform)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
-            testset = torchvision.datasets.MNIST(root='./data/', train=False, download=True, transform=transform)
-            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
-            
-        elif (dataset == "CIFAR10"):
-            transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5)), transforms.Lambda(lambda x : torch.flatten(x))])
-            trainset = torchvision.datasets.CIFAR10(root='./data/', train=True, download=True, transform=transform)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
-            testset = torchvision.datasets.CIFAR10(root='./data/', train=False, download=True, transform=transform)
-            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
-
-        else:
-            raise Exception("dataset not defined or invalid")
-
-        net = FullyConnected(n_hidden=n_hidden, input_size=input_size, hidden_size=hidden_size, output_size=output_size, grad_type=grad_type)
-
-    case "conv":
-        if (dataset == "MNIST"):
-            transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
-            trainset = torchvision.datasets.MNIST(root='./data/', train=True, download=True, transform=transform)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
-            testset = torchvision.datasets.MNIST(root='./data/', train=False, download=True, transform=transform)
-            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
-            net = ConvMNIST(grad_type=grad_type)
-
-        elif (dataset == "CIFAR10"):
-            transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
-            trainset = torchvision.datasets.CIFAR10(root='./data/', train=True, download=True, transform=transform)
-            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
-            testset = torchvision.datasets.CIFAR10(root='./data/', train=False, download=True, transform=transform)
-            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
-            net = ConvCIFAR(grad_type=grad_type)
-        else:
-            raise Exception("dataset not defined or invalid")
-    case _:
-        raise Exception("fc or conv only")
+connectivity = args.connectivity
 
 
-def test_train(net, trainloader, testloader, name="", n_epochs=4, lr=0.0001):
+if (dataset == "MNIST"):
+    if (connectivity == "fc"):
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,)), transforms.Lambda(lambda x : torch.flatten(x))])
+        trainset = torchvision.datasets.MNIST(root='./data/', train=True, download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
+        testset = torchvision.datasets.MNIST(root='./data/', train=False, download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
+        net = FCMNIST(grad_type=grad_type)
+    else:
+        raise Exception ("conv is not working")
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+        trainset = torchvision.datasets.MNIST(root='./data/', train=True, download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
+        testset = torchvision.datasets.MNIST(root='./data/', train=False, download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
+        net = ConvMNIST(grad_type=grad_type)
+elif (dataset == "CIFAR10"):
+    if (connectivity == "fc"):
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5)), transforms.Lambda(lambda x : torch.flatten(x))])
+        trainset = torchvision.datasets.CIFAR10(root='./data/', train=True, download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
+        testset = torchvision.datasets.CIFAR10(root='./data/', train=False, download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
+        net = FCCIFAR(grad_type=grad_type)
+    else:
+        raise Exception ("conv is not working")
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))])
+        trainset = torchvision.datasets.CIFAR10(root='./data/', train=True, download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size_train, shuffle=True)
+        testset = torchvision.datasets.CIFAR10(root='./data/', train=False, download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=False)
+        net = ConvCIFAR(grad_type=grad_type)
+
+
+def test_train(net, trainloader, testloader, name="", n_epochs=4, lr=0.001):
 
     loss_fn = nn.CrossEntropyLoss(reduction='mean')
     optim = torch.optim.SGD(net.parameters(), lr=lr)
@@ -108,18 +97,16 @@ def test_train(net, trainloader, testloader, name="", n_epochs=4, lr=0.0001):
         for batch_idx, (data, target_idx) in enumerate(trainloader):
 
             optim.zero_grad()
-
-            data = data.float().to(DEVICE)
+            if (connectivity == "fc"):
+                data = torch.squeeze(data,dim=1).float().to(DEVICE)
+            else:
+                data = data.float().to(DEVICE)
             target_idx = target_idx.to(DEVICE)
-            target = nn.functional.one_hot(target_idx,num_classes=10).float()
             output = net(data)
-            loss = loss_fn(output, target)
+            loss = loss_fn(output, target_idx)
 
             loss.backward()
             optim.step()
-
-            with torch.no_grad():
-                    net.update_backwards()
 
             if batch_idx % 1000 == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -136,7 +123,10 @@ def test_train(net, trainloader, testloader, name="", n_epochs=4, lr=0.0001):
         correct = 0
         with torch.no_grad():
             for data, target_idx in testloader:
-                data=data.float().to(DEVICE)
+                if (connectivity == "fc"):
+                    data = torch.squeeze(data).float().to(DEVICE)
+                else:
+                    data = data.float().to(DEVICE)
                 target_idx = target_idx.to(DEVICE)
                 target=nn.functional.one_hot(target_idx,num_classes=10).float()
                 output = net(data)
@@ -165,10 +155,8 @@ def main():
     try:
         os.mkdir("./results/{0}".format(name))
     except:
-        print("Name already exists! Overwriting..")
-
+        print("Name already exists! Overwriting...")
     print(" dataset : {0} \n architecture : {1} \n algorithm : {2} \n device : {3}".format(dataset, args.connectivity, grad_type, DEVICE))
-    
     losses = test_train(net, trainloader, testloader, name=name, n_epochs=n_epochs, lr=lr)
     torch.save(losses, './results/{0}/losses.pth'.format(name))
 

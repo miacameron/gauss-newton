@@ -17,32 +17,107 @@ class FullyConnected (nn.Module):
         self.input_size=input_size
         self.hidden_size=hidden_size
         self.output_size=output_size
-        self.nonlinearity = nn.LeakyReLU(0.1)
+
+        self.layers = nn.ModuleList()
 
         if (grad_type == 'backprop'):
             self.linearity = bplinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
         elif (grad_type == 'pseudo'):
             self.linearity = pseudolinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
         elif (grad_type == 'random'):
             self.linearity = randomlinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
 
-        self.layers = [self.linearity(self.hidden_size, self.input_size)]
+        self.layers.append(self.linearity(self.hidden_size, self.input_size))
+
         for _ in range(n_hidden-1):
             self.layers.append(self.linearity(self.hidden_size, self.hidden_size))
-        self.output = self.linearity(self.output_size, self.hidden_size)
+
+        self.layers.append(self.linearity(self.output_size, self.hidden_size))
     
     def forward(self, x):
         for l in self.layers:
-            h = l(x)
-            x = self.nonlinearity(h)
-        y = self.output(x)
-        return y
+            x = l(x)
+            x = x #(1 / torch.linalg.vector_norm(x,dim=-1))[...,None] * x # normalization
+            #h = self.nonlinearity(x)
+        #print(torch.linalg.vector_norm(x))
+        return h
 
     def update_backwards(self):
         #for l in self.layers:
         #    l.update_backwards()
-        #self.output.update_backwards()
         return
+    
+
+class FCMNIST (nn.Module):
+
+    def __init__(self, grad_type='backprop'):
+        super().__init__()
+
+        self.layers = nn.ModuleList()
+
+        if (grad_type == 'backprop'):
+            self.linearity = bplinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
+        elif (grad_type == 'pseudo'):
+            self.linearity = pseudolinear
+            self.nonlinearity = nn.LeakyReLU(0.01) #InvertibleLeakyReLU(negative_slope=0.01)
+        elif (grad_type == 'random'):
+            self.linearity = randomlinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
+
+        self.layers.append(self.linearity(400, 28*28))
+        self.layers.append(self.linearity(200, 400))
+        self.layers.append(self.linearity(100, 200))
+        self.layers.append(self.linearity(50, 100))
+        self.layers.append(self.linearity(10, 50))
+    
+    def forward(self, x):
+        for l in self.layers:
+            x = l(x)
+            h = self.nonlinearity(x)
+        return h
+
+    def update_backwards(self):
+        #for l in self.layers:
+        #    l.update_backwards()
+        return
+
+class FCCIFAR (nn.Module):
+
+    def __init__(self, grad_type='backprop'):
+        super().__init__()
+
+        self.layers = nn.ModuleList()
+
+        if (grad_type == 'backprop'):
+            self.linearity = bplinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
+        elif (grad_type == 'pseudo'):
+            self.linearity = pseudolinear
+            self.nonlinearity = nn.LeakyReLU(0.01) #InvertibleLeakyReLU(negative_slope=0.01)
+        elif (grad_type == 'random'):
+            self.linearity = randomlinear
+            self.nonlinearity = nn.LeakyReLU(0.01)
+
+        self.layers.append(self.linearity(1000, 32*32*3))
+        self.layers.append(self.linearity(500, 1000))
+        self.layers.append(self.linearity(100, 500))
+        self.layers.append(self.linearity(10, 100))
+    
+    def forward(self, x):
+        for l in self.layers:
+            x = l(x)
+            h = self.nonlinearity(x)
+        return h
+
+    def update_backwards(self):
+        #for l in self.layers:
+        #    l.update_backwards()
+        return
+
 
 
 class ConvMNIST (nn.Module):
@@ -63,8 +138,8 @@ class ConvMNIST (nn.Module):
             self.lin = randomlinear
             self.conv = randomconv
 
-        self.conv_layers.append(self.conv(32,1,4,4,2))
-        self.conv_layers.append(self.conv(64,32,3,3,2))
+        self.conv_layers.append(self.conv(32,1,4,4,28,28, 2))
+        self.conv_layers.append(self.conv(64,32,3,3,13,13,2))
         self.lin_layers.append(self.lin(1024,2304))
         self.lin_layers.append(self.lin(10,1024))
 
